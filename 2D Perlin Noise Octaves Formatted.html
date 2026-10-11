@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Multi-Octave 2D Perlin Noise Generator & Layer Breakdown</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --border-color: #334155;
+            --radius: 10px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2.5rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 1.85rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+            color: var(--text-main);
+            letter-spacing: -0.025em;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .control-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        input[type="number"] {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-main);
+            padding: 0.6rem 0.8rem;
+            font-size: 0.95rem;
+            width: 120px;
+        }
+
+        .checkbox-group, .theme-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        input[type="checkbox"], input[type="radio"] {
+            accent-color: var(--primary);
+            width: 1.1rem;
+            height: 1.1rem;
+            cursor: pointer;
+        }
+
+        .action-container {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-start;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1.5rem;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            padding: 0.75rem 1.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .output-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .output-section h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 20px;
+        }
+
+        .canvas-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .canvas-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .bitmap-canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            background-color: #000;
+        }
+
+        @media (max-width: 1200px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Multi-Octave 2D Perlin Noise Generator & Layer Breakdown</h1>
+            <p class="subtitle">Investigate fractal Perlin noise maps by customising the seed, base period, and visualising the each octave layer.</p>
+        </header>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <span class="section-title">Generation Parameters</span>
+                <label for="seedInput">Noise Seed:</label>
+                <input type="number" id="seedInput" value="0">
+                <label for="periodInput">Base Period:</label>
+                <input type="number" id="periodInput" value="512">
+                <label for="octaveInput">Octave Count (Max 8):</label>
+                <input type="number" id="octaveInput" value="6" max="8">
+            </div>
+
+            <div class="control-group">
+                <span class="section-title">Overlay Options</span>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="doDrawGridLines"> Render Gridlines</label>
+                    <label><input type="checkbox" id="doDrawArrows"> Render Gradient Vectors</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <span class="section-title">Color Palette</span>
+                <div class="theme-selector">
+                    <label><input type="radio" name="colour-mode" value="greyscale"> Greyscale</label>
+                    <label><input type="radio" name="colour-mode" value="blue-yellow"> Blue-Yellow</label>
+                    <label><input type="radio" name="colour-mode" value="blue-purple-red"> Blue-Purple-Red</label>
+                    <label><input type="radio" name="colour-mode" value="heatmap"> Rainbow Heatmap</label>
+                    <label><input type="radio" name="colour-mode" value="viridis" checked> Viridis (Colorblind-friendly)</label>
+                </div>
+            </div>
+
+        <div class="action-container" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <button id="generateBtn">Generate Perlin Noise</button>
+            <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">
+                Note: Generation may take up to 10 seconds.
+            </span>
+        </div>
+        </div>
+
+        <!-- Output Display Sections with clear row titles -->
+        <div class="output-section">
+            <h2>Base Noise (Unscaled Raw Values per Octave)</h2>
+            <div id="amplitude1Div" class="grid-container"></div>
+        </div>
+
+        <div class="output-section">
+            <h2>Scaled Octaves (Weighted by Amplitude)</h2>
+            <div id="octavesDiv" class="grid-container"></div>
+        </div>
+
+        <div class="output-section">
+            <h2>Cumulative Noise Map (Additive Combination of Octaves)</h2>
+            <div id="cumulativeDiv" class="grid-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Define dimensions
+        const width = 1024;
+        const height = 1024;
+
+        // Define number of octaves to draw and then add up, as well as the array to store canvas data
+        var cumulativeData;
+
+        // Locate parent div
+        const amplitude1Div = document.getElementById("amplitude1Div");
+        const octavesDiv = document.getElementById("octavesDiv");
+        const cumulativeDiv = document.getElementById("cumulativeDiv");
+
+        // 2. Define the different canvases to draw Perlin noise on
+        var gradient_count;
+        var dimension_count;
+        var doDrawGridLines;
+        var doDrawArrows;
+        var globalSelectedTheme;
+        chooseRandom256AngleGradient = false;
+        const SQRT2 = Math.sqrt(2);
+        const SQRT6DIV3 = Math.sqrt(6) / 3;
+
+        // 3. Initialise the GRADIENT array and hash table
+        range_2d = 1;
+        const GRADIENT_2D_CARDINAL = [
+            [range_2d * SQRT2, 0],
+            [0, range_2d * SQRT2],
+            [-range_2d * SQRT2, 0],
+            [0, -range_2d * SQRT2]
+        ];
+        
+        range_2d_diagonal = 1;
+        const GRADIENT_2D_DIAGONAL =[
+            [range_2d_diagonal, range_2d_diagonal],
+            [range_2d_diagonal, -range_2d_diagonal],
+            [-range_2d_diagonal, range_2d_diagonal],
+            [-range_2d_diagonal, -range_2d_diagonal]
+        ];
+
+        range_2d_both = 1;
+        const GRADIENT_2D_BOTH =[
+            [range_2d_both, range_2d_both],
+            [range_2d_both, -range_2d_both],
+            [-range_2d_both, range_2d_both],
+            [-range_2d_both, -range_2d_both],
+            [range_2d_both * SQRT2, 0],
+            [0, range_2d_both * SQRT2],
+            [-range_2d_both * SQRT2, 0],
+            [0, -range_2d_both * SQRT2]
+        ];
+
+        range_3d = 1;
+        const GRADIENT_3D = [
+            [0, range_3d * SQRT6DIV3, range_3d * SQRT6DIV3],
+            [0, range_3d * SQRT6DIV3, -range_3d * SQRT6DIV3],
+            [0, -range_3d * SQRT6DIV3, range_3d * SQRT6DIV3],
+            [0, -range_3d * SQRT6DIV3, -range_3d * SQRT6DIV3],
+            [range_3d * SQRT6DIV3, 0, range_3d * SQRT6DIV3],
+            [range_3d * SQRT6DIV3, 0, -range_3d * SQRT6DIV3],
+            [-range_3d * SQRT6DIV3, 0, range_3d * SQRT6DIV3],
+            [-range_3d * SQRT6DIV3, 0, -range_3d * SQRT6DIV3],
+            [range_3d * SQRT6DIV3, range_3d * SQRT6DIV3, 0],
+            [range_3d * SQRT6DIV3, -range_3d * SQRT6DIV3, 0],
+            [-range_3d * SQRT6DIV3, range_3d * SQRT6DIV3, 0],
+            [-range_3d * SQRT6DIV3, -range_3d * SQRT6DIV3, 0]
+        ];
+
+        GRADIENT_SELECTED = GRADIENT_2D_DIAGONAL;
+
+        HASH = [135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,
+            190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+            49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,
+            251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,
+            129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,
+            223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,
+            138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180,
+            131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+            88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,
+            77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+            102,143,54, 65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,
+            5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+            151,160,137,91,90,15
+            ];
+
+        function gradientFrom256Angle(angle) {
+            return [SQRT2 * Math.cos(angle * Math.PI / 128), SQRT2 * Math.sin(angle * Math.PI / 128)];
+        }
+        
+        function dotProduct(a, b) {
+            return a[0] * b[0] + a[1] * b[1];
+        };
+
+        function smoothstep(x) {
+            return ((6 * x - 15) * x + 10) * x * x * x;
+        };
+
+        function cubicSmoothstep(x) {
+            return (3 - 2 * x) * x * x
+        }
+
+        function lerp1D(left, right, alpha) {
+            return left + (right - left) * alpha;
+        };
+
+        function deleteOldCanvasDivs() {
+            const canvasDivs = document.querySelectorAll('.canvas-card');
+            canvasDivs.forEach(div => div.remove());
+        }
+
+        function createNewCanvas(parentDiv, ID, labelText) {
+            const card = document.createElement("div");
+            card.classList.add("canvas-card");
+
+            const label = document.createElement("div");
+            label.classList.add("canvas-title");
+            label.innerText = labelText;
+            card.appendChild(label);
+
+            const newCanvas = document.createElement("canvas");
+            newCanvas.classList.add("bitmap-canvas");
+            newCanvas.id = ID;
+            newCanvas.width = width;
+            newCanvas.height = height;
+            
+            card.appendChild(newCanvas);
+            parentDiv.append(card);
+
+            const ctx = newCanvas.getContext('2d');
+            return ctx.createImageData(width, height);
+        };
+
+        function setDataRGBA(dataRGBAArray, pre_index, intensity) {
+            const index = pre_index * 4;
+            switch (globalSelectedTheme) {
+                case "greyscale":
+                    dataRGBAArray[index] = intensity;
+                    dataRGBAArray[index + 1] = intensity;
+                    dataRGBAArray[index + 2] = intensity;
+                    dataRGBAArray[index + 3] = 255;
+                    break;
+                case "blue-yellow":
+                    dataRGBAArray[index] = intensity;
+                    dataRGBAArray[index + 1] = intensity;
+                    dataRGBAArray[index + 2] = 255 - intensity;
+                    dataRGBAArray[index + 3] = 255;
+                    break;
+                case "blue-purple-red":
+                    dataRGBAArray[index] = intensity;
+                    dataRGBAArray[index + 1] = 0;
+                    dataRGBAArray[index + 2] = 255 - intensity;
+                    dataRGBAArray[index + 3] = 255;
+                    break;
+                case "heatmap":
+                    const val = Math.max(0, Math.min(255, intensity));
+                    const ratio = val / 255;
+                    const colors = [
+                        { r: 0,   g: 0,   b: 255 },
+                        { r: 0,   g: 255, b: 255 },
+                        { r: 255, g: 255, b: 0   },
+                        { r: 255, g: 0,   b: 0   }
+                    ];
+                    const scaled = ratio * (colors.length - 1);
+                    const segment_index = Math.floor(scaled);
+                    const t = scaled - segment_index;
+
+                    if (segment_index >= colors.length - 1) {
+                        const c = colors[colors.length - 1];
+                        dataRGBAArray[index] = c.r;
+                        dataRGBAArray[index + 1] = c.g;
+                        dataRGBAArray[index + 2] = c.b;
+                        dataRGBAArray[index + 3] = 255;
+                        break;
+                    }
+
+                    const c1 = colors[segment_index];
+                    const c2 = colors[segment_index + 1];
+
+                    dataRGBAArray[index] = Math.round(c1.r + t * (c2.r - c1.r));
+                    dataRGBAArray[index + 1] = Math.round(c1.g + t * (c2.g - c1.g));
+                    dataRGBAArray[index + 2] = Math.round(c1.b + t * (c2.b - c1.b));
+                    dataRGBAArray[index + 3] = 255;
+                    break;
+                case "viridis":
+                    const v_val = Math.max(0, Math.min(255, intensity));
+                    const v_ratio = v_val / 255;
+                    const v_colors = [
+                        { r: 68,  g: 1,   b: 84  },
+                        { r: 59,  g: 82,  b: 139 },
+                        { r: 33,  g: 145, b: 140 },
+                        { r: 94,  g: 201, b: 98  },
+                        { r: 253, g: 231, b: 37  }
+                    ];
+                    const v_scaled = v_ratio * (v_colors.length - 1);
+                    const v_segment_index = Math.floor(v_scaled);
+                    const v_t = v_scaled - v_segment_index;
+
+                    if (v_segment_index >= v_colors.length - 1) {
+                        const c = v_colors[v_colors.length - 1];
+                        dataRGBAArray[index]     = c.r;
+                        dataRGBAArray[index + 1] = c.g;
+                        dataRGBAArray[index + 2] = c.b;
+                        dataRGBAArray[index + 3] = 255;
+                    } else {
+                        const c1 = v_colors[v_segment_index];
+                        const c2 = v_colors[v_segment_index + 1];
+
+                        dataRGBAArray[index]     = Math.round(c1.r + v_t * (c2.r - c1.r));
+                        dataRGBAArray[index + 1] = Math.round(c1.g + v_t * (c2.g - c1.g));
+                        dataRGBAArray[index + 2] = Math.round(c1.b + v_t * (c2.b - c1.b));
+                        dataRGBAArray[index + 3] = 255;
+                    }
+                    break;
+                return
+            };
+        };
+
+        function mulberry32(seed) {
+            return function() {
+                let t = seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        function deterministicShuffle(array, seed) {
+            const arr = [...array];
+            const random = mulberry32(seed);
+
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+
+            return arr;
+        }
+
+        function setGridLineRGBA(dataRGBAArray, pre_index) {
+            const index = pre_index * 4
+            dataRGBAArray[index]     = 224;
+            dataRGBAArray[index + 1] = 224;
+            dataRGBAArray[index + 2] = 224;
+            dataRGBAArray[index + 3] = 255;
+        };
+
+        function drawGradientArrows(ctx, period, width, height, useRandomAngles, gradSelected) {
+            const arrowThickness = period / 32;
+            const arrowColor = "rgba(255, 0, 0, 1)";
+
+            ctx.strokeStyle = arrowColor;
+            ctx.fillStyle = arrowColor;
+            ctx.lineWidth = arrowThickness;
+            ctx.lineCap = "round";
+
+            const cols = Math.ceil(width / period) + 1;
+            const rows = Math.ceil(height / period) + 1;
+
+            const arrowLengthScale = period * 0.35;
+            const headLength = period * 0.08;
+
+            for (let j = 0; j < rows; j++) {
+                for (let i = 0; i < cols; i++) {
+                    const gx = i * period;
+                    const gy = j * period;
+
+                    const hashx = HASH[i % 256];
+                    const h = HASH[(hashx + j) % 256];
+
+                    let grad;
+                    if (useRandomAngles) {
+                        grad = gradientFrom256Angle(h);
+                    } else {
+                        grad = gradSelected[h % gradSelected.length];
+                    }
+
+                    const dx = grad[0] * arrowLengthScale;
+                    const dy = grad[1] * arrowLengthScale;
+                    const length = Math.sqrt(dx * dx + dy * dy);
+
+                    if (length === 0) continue;
+
+                    const ux = dx / length;
+                    const uy = dy / length;
+
+                    const tipX = gx + dx;
+                    const tipY = gy + dy;
+
+                    const lineEndX = tipX - ux * (headLength * 0.6);
+                    const lineEndY = tipY - uy * (headLength * 0.6);
+
+                    ctx.beginPath();
+                    ctx.moveTo(gx, gy);
+                    ctx.lineTo(lineEndX, lineEndY);
+                    ctx.stroke();
+
+                    const angle = Math.atan2(dy, dx);
+                    ctx.beginPath();
+                    ctx.moveTo(tipX, tipY);
+                    ctx.lineTo(
+                        tipX - headLength * Math.cos(angle - Math.PI / 6),
+                        tipY - headLength * Math.sin(angle - Math.PI / 6)
+                    );
+                    ctx.lineTo(
+                        tipX - headLength * Math.cos(angle + Math.PI / 6),
+                        tipY - headLength * Math.sin(angle + Math.PI / 6)
+                    );
+                    ctx.lineTo(tipX, tipY);
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(gx, gy, arrowThickness, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    </script>
+    <script>
+        document.getElementById('generateBtn').addEventListener('click', () => {
+
+            doDrawGridLines = document.getElementById("doDrawGridLines").checked
+            doDrawArrows = document.getElementById("doDrawArrows").checked
+            globalSelectedTheme = document.querySelector('input[name="colour-mode"]:checked')?.value;
+
+            deleteOldCanvasDivs();
+
+            const seed = parseInt(document.getElementById("seedInput").value, 10);
+            HASH_Shuffled = deterministicShuffle(HASH, seed);
+
+            const numberOfOctaves = Math.min(8, parseInt(document.getElementById("octaveInput").value, 10));
+
+            for (let i = 0; i < numberOfOctaves; i++) {
+                period = parseInt(document.getElementById("periodInput").value, 10) / (2 ** i);
+                amplitude = 1 / (2 ** i);
+                amplitude1ID = "amplitude" + i.toString();
+                octaveID = "octave" + i.toString();
+                cumulativeID = "cumulative" + i.toString();
+                chooseRandom256AngleGradient = true;
+
+                amplitude1ImageData = createNewCanvas(amplitude1Div, amplitude1ID, `Octave ${i + 1} (Base)`);
+                amplitude1DataRGBA = new Uint8ClampedArray(width * height * 4);
+
+                octaveImageData = createNewCanvas(octavesDiv, octaveID, `Octave ${i + 1} (Scaled)`);
+                octaveDataRGBA = new Uint8ClampedArray(width * height * 4);
+
+                cumulativeImageData = createNewCanvas(cumulativeDiv, cumulativeID, `Cumulative (1-${i + 1})`);
+                cumulativeDataRGBA = new Uint8ClampedArray(width * height * 4);
+
+                if (i == 0) {
+                    cumulativeDataIntensity = new Array(width * height);
+                };
+
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        index = y * width + x;
+
+                        x_mod = ((x % period) + period) % period;
+                        y_mod = ((y % period) + period) % period;
+                        x_grid_coordinate = (x - x_mod) / period;
+                        y_grid_coordinate = (y - y_mod) / period;
+                        x_relative = x_mod / period;
+                        y_relative = y_mod / period;
+
+                        hashx0 = HASH_Shuffled[x_grid_coordinate % 256];
+                        hashx1 = HASH_Shuffled[(x_grid_coordinate + 1) % 256];
+                        hash00 = HASH_Shuffled[(hashx0 + y_grid_coordinate) % 256];
+                        hash01 = HASH_Shuffled[(hashx0 + y_grid_coordinate + 1) % 256];
+                        hash10 = HASH_Shuffled[(hashx1 + y_grid_coordinate) % 256];
+                        hash11 = HASH_Shuffled[(hashx1 + y_grid_coordinate + 1) % 256];
+
+                        if (chooseRandom256AngleGradient) {
+                            n00 = dotProduct(gradientFrom256Angle(hash00), [x_relative, y_relative]);
+                            n01 = dotProduct(gradientFrom256Angle(hash01), [x_relative, y_relative - 1]);
+                            n10 = dotProduct(gradientFrom256Angle(hash10), [x_relative - 1, y_relative]);
+                            n11 = dotProduct(gradientFrom256Angle(hash11), [x_relative - 1, y_relative - 1]);
+                        } else {
+                            n00 = dotProduct(GRADIENT_SELECTED[hash00 % gradient_count], [x_relative, y_relative]);
+                            n01 = dotProduct(GRADIENT_SELECTED[hash01 % gradient_count], [x_relative, y_relative - 1]);
+                            n10 = dotProduct(GRADIENT_SELECTED[hash10 % gradient_count], [x_relative - 1, y_relative]);
+                            n11 = dotProduct(GRADIENT_SELECTED[hash11 % gradient_count], [x_relative - 1, y_relative - 1]);
+                        };
+
+                        x_alpha = smoothstep(x_relative);
+                        y_alpha = smoothstep(y_relative);
+
+                        noise_raw = lerp1D(lerp1D(n00, n01, y_alpha), lerp1D(n10, n11, y_alpha), x_alpha);
+                        noise_dilated = noise_raw * 128 * amplitude;
+                        noise_final = noise_dilated + 128;
+                        noise_amplitude_1 = (noise_raw + 1) * 128;
+
+                        if (doDrawGridLines && (Math.min(Math.abs(x_relative), Math.abs(1 - x_relative)) < 0.02 || Math.min(Math.abs(y_relative), Math.abs(1 - y_relative)) < 0.02)) {
+                            setGridLineRGBA(amplitude1DataRGBA, index);
+                            setGridLineRGBA(octaveDataRGBA, index);
+                        } else {
+                            setDataRGBA(amplitude1DataRGBA, index, noise_amplitude_1)
+                            setDataRGBA(octaveDataRGBA, index, noise_final);
+                        };
+
+                        if (i == 0) {
+                            cumulativeDataIntensity[index] = noise_final;
+                        } else {
+                            cumulativeDataIntensity[index] += (noise_raw) * 128 * amplitude;
+                        };
+
+                        setDataRGBA(cumulativeDataRGBA, index, cumulativeDataIntensity[index]);
+                    };
+                };
+
+                amplitude1Context = document.getElementById(amplitude1ID).getContext('2d');
+                amplitude1ImageData.data.set(amplitude1DataRGBA);
+                amplitude1Context.putImageData(amplitude1ImageData, 0, 0);
+                if (doDrawArrows) {
+                    drawGradientArrows(amplitude1Context, period, width, height, chooseRandom256AngleGradient, GRADIENT_SELECTED);
+                };
+
+                octaveContext = document.getElementById(octaveID).getContext('2d');
+                octaveImageData.data.set(octaveDataRGBA);
+                octaveContext.putImageData(octaveImageData, 0, 0);
+                if (doDrawArrows) {
+                    drawGradientArrows(octaveContext, period, width, height, chooseRandom256AngleGradient, GRADIENT_SELECTED);
+                };
+
+                cumulativeContext = document.getElementById(cumulativeID).getContext('2d');
+                cumulativeImageData.data.set(cumulativeDataRGBA);
+                cumulativeContext.putImageData(cumulativeImageData, 0, 0);
+
+                chooseRandom256AngleGradient = false;
+            };
+        });
+    </script>
+</body>
+</html>
