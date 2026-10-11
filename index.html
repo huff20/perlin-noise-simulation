@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>2D Perlin Noise Simulator</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --border-color: #334155;
+            --radius: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 4rem 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0 0 0.75rem 0;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.15rem;
+            margin: 0;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .tool-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.15);
+        }
+
+        .card-content h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0 0 0.75rem 0;
+            color: var(--text-main);
+        }
+
+        .card-content p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin: 0 0 1.5rem 0;
+            line-height: 1.5;
+        }
+
+        .card-footer {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .card-footer svg {
+            width: 18px;
+            height: 18px;
+            transition: transform 0.2s ease;
+        }
+
+        .tool-card:hover .card-footer svg {
+            transform: translateX(4px);
+        }
+
+        footer {
+            margin-top: 4rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>2D Perlin Noise Simulator</h1>
+            <p class="subtitle">Select a tool below to visualise octave blending, understand how dot products relate to gradient vectors, and compare smoothing algorithms.</p>
+        </header>
+
+        <div class="cards-grid">
+            <!-- Tool 1: Multi-Octave Generator -->
+            <a href="2D Perlin Noise Octaves Formatted.html" class="tool-card">
+                <div class="card-content">
+                    <h2>Multi-Octave Generator</h2>
+                    <p>Investigate fractal Perlin noise maps by customising the seed, base period, and visualising the each octave layer.</p>
+                </div>
+                <div class="card-footer">
+                    <span>Launch Tool</span>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+            </a>
+
+            <!-- Tool 2: Min/Max Analysis -->
+            <a href="2D Perlin Noise MinMax Formatted.html" class="tool-card">
+                <div class="card-content">
+                    <h2>Minimum & Maximum Dot Product Intensities</h2>
+                    <p>Examine extremum characteristics, gridline overlays, and gradient vector orientations across custom period settings.</p>
+                </div>
+                <div class="card-footer">
+                    <span>Launch Tool</span>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+            </a>
+
+            <!-- Tool 3: SmoothStep Comparison -->
+            <a href="2D Perlin Noise SmoothStep Comparison Formatted.html" class="tool-card">
+                <div class="card-content">
+                    <h2>SmoothStep Comparison</h2>
+                    <p>Visually compare the use of quintic, cubic, and linear interpolation easing curves.</p>
+                </div>
+                <div class="card-footer">
+                    <span>Launch Tool</span>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+            </a>
+        </div>
+
+        <footer>
+            <p>Perlin Noise Simulator Dashboard &bull; Dark Mode</p>
+        </footer>
+    </div>
+</body>
+</html>
