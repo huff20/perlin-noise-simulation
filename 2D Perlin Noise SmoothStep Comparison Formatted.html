@@ -206,24 +206,28 @@
             <div class="control-group">
                 <span class="section-title">Overlay Options</span>
                 <div class="checkbox-group">
+                    <label><input type="checkbox" id="doDrawNoise" checked> Render Perlin Noise</label>
                     <label><input type="checkbox" id="doDrawGridLines"> Render Gridlines</label>
                     <label><input type="checkbox" id="doDrawArrows"> Render Gradient Vectors</label>
                 </div>
             </div>
 
             <div class="control-group">
-                <span class="section-title">Color Palette</span>
+                <span class="section-title">Colour Palette</span>
                 <div class="theme-selector">
                     <label><input type="radio" name="colour-mode" value="greyscale"> Greyscale</label>
                     <label><input type="radio" name="colour-mode" value="blue-yellow"> Blue-Yellow</label>
                     <label><input type="radio" name="colour-mode" value="blue-purple-red"> Blue-Purple-Red</label>
                     <label><input type="radio" name="colour-mode" value="heatmap"> Rainbow Heatmap</label>
-                    <label><input type="radio" name="colour-mode" value="viridis" checked> Viridis (Colorblind-friendly)</label>
+                    <label><input type="radio" name="colour-mode" value="viridis" checked> Viridis (Colourblind-friendly)</label>
                 </div>
             </div>
 
             <div class="action-container">
                 <button id="generateBtn">Generate Perlin Noise</button>
+            </div>
+            <div class="action-container">
+                <button id="arrowsBtn">Generate Gradient Vectors</button>
             </div>
         </div>
 
@@ -486,9 +490,14 @@
             dataRGBAArray[index + 3] = 255;
         };
 
-        function drawGradientArrows(ctx, period, width, height, useRandomAngles, gradSelected) {
-            const arrowThickness = period / 32;
-            const arrowColor = "rgba(255, 0, 0, 1)";
+        function drawGradientArrows(ctx, period, width, height, useRandomAngles, gradSelected, HASH_Shuffled) {
+            const arrowThickness = period / 20;
+            let arrowColor;
+            if (globalSelectedTheme == "blue-purple-red") {
+                arrowColor = "rgba(0, 255, 0, 1)";
+            } else {
+                arrowColor = "rgba(255, 0, 0, 1)";
+            };
 
             ctx.strokeStyle = arrowColor;
             ctx.fillStyle = arrowColor;
@@ -499,15 +508,15 @@
             const rows = Math.ceil(height / period) + 1;
 
             const arrowLengthScale = period * 0.35;
-            const headLength = period * 0.08;
+            const headLength = arrowThickness * 3;
 
             for (let j = 0; j < rows; j++) {
                 for (let i = 0; i < cols; i++) {
                     const gx = i * period;
                     const gy = j * period;
 
-                    const hashx = HASH[i % 256];
-                    const h = HASH[(hashx + j) % 256];
+                    const hashx = HASH_Shuffled[i % 256];
+                    const h = HASH_Shuffled[(hashx + j) % 256];
 
                     let grad;
                     if (useRandomAngles) {
@@ -561,8 +570,9 @@
         document.getElementById('generateBtn').addEventListener('click', () => {
 
             period = parseInt(document.getElementById("periodInput").value, 10);
-            doDrawGridLines = document.getElementById("doDrawGridLines").checked
-            doDrawArrows = document.getElementById("doDrawArrows").checked
+            doDrawNoise = document.getElementById("doDrawNoise").checked;
+            doDrawGridLines = document.getElementById("doDrawGridLines").checked;
+            doDrawArrows = document.getElementById("doDrawArrows").checked;
             globalSelectedTheme = document.querySelector('input[name="colour-mode"]:checked')?.value;
 
             deleteOldCanvasDivs();
@@ -579,6 +589,7 @@
                 const canvasID = easeCurves[i]
                 const canvasDiv = document.getElementById(easeCurves[i] + "Div");
                 canvasImageData = createNewCanvas(canvasDiv, canvasID, labels[i]);
+                canvasContext = document.getElementById(canvasID).getContext('2d');
                 canvasDataRGBA = new Uint8ClampedArray(width * height * 4);
 
                 for (let y = 0; y < height; y++) {
@@ -595,45 +606,46 @@
                         if (doDrawGridLines && (Math.min(Math.abs(x_relative), Math.abs(1 - x_relative)) < 0.02 || Math.min(Math.abs(y_relative), Math.abs(1 - y_relative)) < 0.02)) {
                             setGridLineRGBA(canvasDataRGBA, index);
                             continue;
+                        } else if (doDrawNoise) {
+
+                            hashx0 = HASH_Shuffled[x_grid_coordinate % 256];
+                            hashx1 = HASH_Shuffled[(x_grid_coordinate + 1) % 256];
+                            hash00 = HASH_Shuffled[(hashx0 + y_grid_coordinate) % 256];
+                            hash01 = HASH_Shuffled[(hashx0 + y_grid_coordinate + 1) % 256];
+                            hash10 = HASH_Shuffled[(hashx1 + y_grid_coordinate) % 256];
+                            hash11 = HASH_Shuffled[(hashx1 + y_grid_coordinate + 1) % 256];
+
+                            n00 = dotProduct(gradientFrom256Angle(hash00), [x_relative, y_relative]);
+                            n01 = dotProduct(gradientFrom256Angle(hash01), [x_relative, y_relative - 1]);
+                            n10 = dotProduct(gradientFrom256Angle(hash10), [x_relative - 1, y_relative]);
+                            n11 = dotProduct(gradientFrom256Angle(hash11), [x_relative - 1, y_relative - 1]);
+
+                            if (i == 0) {
+                                x_alpha = smoothstep(x_relative);
+                                y_alpha = smoothstep(y_relative);
+                            } else if (i == 1) {
+                                x_alpha = cubicSmoothstep(x_relative);
+                                y_alpha = cubicSmoothstep(y_relative);
+                            } else {
+                                x_alpha = x_relative;
+                                y_alpha = y_relative;
+                            };
+
+                            noise_raw = lerp1D(lerp1D(n00, n01, y_alpha), lerp1D(n10, n11, y_alpha), x_alpha);
+                            noise_dilated = noise_raw * 128 * amplitude;
+                            noise_final = noise_dilated + 128;
+                            noise_amplitude_1 = (noise_raw + 1) * 128;
+
+                            setDataRGBA(canvasDataRGBA, index, noise_amplitude_1)
                         };
-
-                        hashx0 = HASH_Shuffled[x_grid_coordinate % 256];
-                        hashx1 = HASH_Shuffled[(x_grid_coordinate + 1) % 256];
-                        hash00 = HASH_Shuffled[(hashx0 + y_grid_coordinate) % 256];
-                        hash01 = HASH_Shuffled[(hashx0 + y_grid_coordinate + 1) % 256];
-                        hash10 = HASH_Shuffled[(hashx1 + y_grid_coordinate) % 256];
-                        hash11 = HASH_Shuffled[(hashx1 + y_grid_coordinate + 1) % 256];
-
-                        n00 = dotProduct(gradientFrom256Angle(hash00), [x_relative, y_relative]);
-                        n01 = dotProduct(gradientFrom256Angle(hash01), [x_relative, y_relative - 1]);
-                        n10 = dotProduct(gradientFrom256Angle(hash10), [x_relative - 1, y_relative]);
-                        n11 = dotProduct(gradientFrom256Angle(hash11), [x_relative - 1, y_relative - 1]);
-
-                        if (i == 0) {
-                            x_alpha = smoothstep(x_relative);
-                            y_alpha = smoothstep(y_relative);
-                        } else if (i == 1) {
-                            x_alpha = cubicSmoothstep(x_relative);
-                            y_alpha = cubicSmoothstep(y_relative);
-                        } else {
-                            x_alpha = x_relative;
-                            y_alpha = y_relative;
-                        };
-
-                        noise_raw = lerp1D(lerp1D(n00, n01, y_alpha), lerp1D(n10, n11, y_alpha), x_alpha);
-                        noise_dilated = noise_raw * 128 * amplitude;
-                        noise_final = noise_dilated + 128;
-                        noise_amplitude_1 = (noise_raw + 1) * 128;
-
-                        setDataRGBA(canvasDataRGBA, index, noise_amplitude_1)
                     };
                 };
 
-                canvasContext = document.getElementById(canvasID).getContext('2d');
                 canvasImageData.data.set(canvasDataRGBA);
                 canvasContext.putImageData(canvasImageData, 0, 0);
+
                 if (doDrawArrows) {
-                    drawGradientArrows(canvasContext, period, width, height, chooseRandom256AngleGradient, GRADIENT_SELECTED);
+                    drawGradientArrows(canvasContext, period, width, height, chooseRandom256AngleGradient, GRADIENT_SELECTED, HASH_Shuffled);
                 };
 
                 chooseRandom256AngleGradient = false;
